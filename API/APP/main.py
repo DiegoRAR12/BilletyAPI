@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from typing import Optional
 import uvicorn
+from starlette import status
 
 from dao import Conexion, UsuarioDAO, CategoriaDAO, PlaneacionDAO, MovimientoDAO
 from models import (
@@ -42,7 +44,8 @@ async def login(request: Request, datos: UsuarioLogin):
 @app.get("/usuarios/{id_usuario}",tags=["Usuarios"],summary="Consultar usuario por ID",response_model=UsuarioSalida | Salida)
 async def consultar_usuario(request: Request, id_usuario: int):
     dao = UsuarioDAO(request.app.cn)
-    return dao.consultar_por_id(id_usuario)
+    resultado = dao.consultar_por_id(id_usuario)
+    return JSONResponse(status_code=resultado.codigo, content=resultado.model_dump())
 
 
 @app.patch("/usuarios/{id_usuario}/desactivar",tags=["Usuarios"],summary="Desactivar cuenta de usuario",response_model=Salida)
@@ -153,7 +156,8 @@ async def consultar_por_tipo_pago(request: Request, id_usuario: int, tipo_pago: 
     summary="Crear planeación financiera mensual", response_model=PlaneacionCreadaSalida | Salida)
 async def crear_planeacion(request: Request, datos: PlaneacionCrear):
     dao = PlaneacionDAO(request.app.cn)
-    return dao.crear(datos)
+    resultado = dao.crear(datos)
+    return JSONResponse(status_code=resultado.codigo, content=resultado.model_dump())
 
 @app.get("/planeacion/{id_planeacion}", tags=["Planeación"],
     summary="Consultar planeación por ID", response_model=PlaneacionDetalleSalida | Salida)
