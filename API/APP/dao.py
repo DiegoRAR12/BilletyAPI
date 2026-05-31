@@ -62,16 +62,19 @@ class MovimientoORM(Base):
 
 # CLASE Conexion
 class Conexion:
-    URL_BD = "mysql+pymysql://root:papoisql@localhost:3306/billety_db"
+    HOST = "localhost"
+    PORT = 3306
+    BD   = "billety_db"
 
-    def __init__(self):
+    def __init__(self, user: str, password: str):
         try:
-            self._engine = create_engine(self.URL_BD, echo=False, pool_pre_ping=True)
+            url = f"mysql+pymysql://{user}:{password}@{self.HOST}:{self.PORT}/{self.BD}"
+            self._engine = create_engine(url, echo=False, pool_pre_ping=True)
             Base.metadata.create_all(self._engine)
             self._SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self._engine)
-            print("Conexión exitosa a MySQL — Billety DB")
+            print(f"✅ Conexión exitosa a MySQL como '{user}' — Billety DB")
         except Exception as e:
-            print(f"Error al conectar a la BD: {e}")
+            print(f"❌ Error al conectar a la BD: {e}")
             raise
 
     def cerrar(self):
@@ -172,23 +175,23 @@ class UsuarioDAO:
         except SQLAlchemyError as e:
             return Salida(codigo=500, mensaje=f"Error interno al desactivar usuario: {e}")
 
-    def reactivar(self, id_categoria: int) -> Salida:
+    def reactivar(self, id_usuario: int) -> Salida:
         try:
             with self.conexion.session as db:
-                cat = db.query(CategoriaORM).filter(
-                    CategoriaORM.id_categoria == id_categoria
+                usuario = db.query(UsuarioORM).filter(
+                    UsuarioORM.id_usuario == id_usuario
                 ).first()
 
-                if not cat:
-                    return Salida(codigo=404, mensaje="Categoría no encontrada")
-                if cat.estado:
-                    return Salida(codigo=400, mensaje="La categoría ya está activa")
+                if not usuario:
+                    return Salida(codigo=404, mensaje="Usuario no encontrado")
+                if usuario.estatus:
+                    return Salida(codigo=400, mensaje="La cuenta ya está activa")
 
-                cat.estado = True
+                usuario.estatus = True
                 db.commit()
-                return Salida(codigo=200, mensaje="Categoría reactivada exitosamente")
+                return Salida(codigo=200, mensaje="Cuenta reactivada exitosamente")
         except SQLAlchemyError as e:
-            return Salida(codigo=500, mensaje=f"Error interno al reactivar categoría: {e}")
+            return Salida(codigo=500, mensaje=f"Error interno al reactivar usuario: {e}")
 
     def activar(self, id_usuario: int) -> Salida:
         try:
@@ -225,6 +228,35 @@ class UsuarioDAO:
                 return Salida(codigo=200, mensaje=f"Rol actualizado a '{datos.rol}' exitosamente")
         except SQLAlchemyError as e:
             return Salida(codigo=500, mensaje=f"Error interno al cambiar rol: {e}")
+
+    def autenticar(self, correo: str, password: str) -> "Usuario | None":
+        """
+        Verifica credenciales contra la tabla usuarios.
+        Retorna el objeto Usuario si son válidas y la cuenta está activa.
+        Usado por security.py en el proceso de autenticación HTTP Basic.
+        """
+        try:
+            with self.conexion.session as db:
+                usuario = db.query(UsuarioORM).filter(
+                    UsuarioORM.correo  == correo,
+                    UsuarioORM.password == _hashear(password),
+                    UsuarioORM.estatus  == True
+                ).first()
+
+                if not usuario:
+                    return None
+
+                from models import Usuario
+                return Usuario(
+                    id_usuario = usuario.id_usuario,
+                    nombre     = usuario.nombre,
+                    correo     = usuario.correo,
+                    password   = usuario.password,
+                    estatus    = usuario.estatus,
+                    rol        = usuario.rol
+                )
+        except SQLAlchemyError:
+            return None
 
 #CATEGORÍAS
 class CategoriaDAO:

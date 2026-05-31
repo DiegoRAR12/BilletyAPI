@@ -1,0 +1,91 @@
+==================================================================
+ Instrucciones de Seguridad — Billety API
+ BD: billety_db | MySQL 8.0
+==================================================================
+
+PASO 1: EJECUTAR EL SCRIPT DE SEGURIDAD
+==================================================================
+Antes de ejecutar este script asegurarse de que billety_db.sql
+ya fue ejecutado y la base de datos está creada correctamente.
+
+Abrir MySQL Workbench y ejecutar:
+    File → Open SQL Script → billety_seguridad.sql
+    Presionar Ctrl+Shift+Enter para ejecutar todo el script.
+
+El script creará automáticamente los usuarios MySQL y asignará
+los privilegios correspondientes a cada rol.
+
+
+PASO 2: USUARIOS MYSQL CREADOS
+==================================================================
+El script crea dos usuarios en MySQL, uno por cada rol del sistema:
+
+    Usuario MySQL: billety_admin
+    Contraseña:    Admin.Billety123
+    Rol en la app: admin
+
+    Usuario MySQL: billety_usuario
+    Contraseña:    Usuario.Billety123
+    Rol en la app: usuario
+
+
+PASO 3: PRIVILEGIOS ASIGNADOS
+==================================================================
+Rol: admin (billety_admin)
+    - SELECT, INSERT, UPDATE, DELETE en todas las tablas
+    - SELECT en todas las vistas
+
+Rol: usuario (billety_usuario)
+    - SELECT, INSERT, UPDATE en todas las tablas (sin DELETE)
+    - SELECT en todas las vistas
+    - Las operaciones de eliminación son lógicas: estatus = false o 'cancelado'
+
+
+PASO 4: CÓMO FUNCIONA EN LA API
+==================================================================
+Cuando un usuario hace una petición a la API:
+
+1. Envía su correo y contraseña en el header Authorization (HTTP Basic Auth)
+
+2. La API verifica las credenciales contra la tabla usuarios de billety_db
+
+3. Si las credenciales son correctas y la cuenta está activa, la API lee el campo ROL del usuario en la tabla usuarios
+
+4. Según el rol, la API conecta a MySQL con el usuario correspondiente:
+       rol = admin   → conecta con billety_admin
+       rol = usuario → conecta con billety_usuario
+
+5. Todas las operaciones de esa petición se ejecutan con los privilegios del usuario MySQL correspondiente
+
+
+PASO 5: USUARIO ADMINISTRADOR INICIAL
+==================================================================
+El usuario administrador se crea directamente en la base de datos por el desarrollador. No se puede registrar desde la API.
+
+Para crearlo ejecutar en MySQL Workbench:
+
+    INSERT INTO usuarios (nombre, correo, password, estatus, rol)
+    VALUES (
+        'Nombre del Admin',
+        'correo@ejemplo.com',
+        SHA2('contraseña', 256),
+        TRUE,
+        'admin'
+    );
+
+El campo ROL debe ser 'admin' para que la API conecte con billety_admin y tenga acceso completo al sistema.
+
+
+PASO 6: VERIFICAR QUE TODO QUEDÓ CORRECTO
+==================================================================
+Ejecutar en MySQL Workbench para confirmar:
+
+    -- Ver usuarios creados
+    SELECT user, host FROM mysql.user
+    WHERE user IN ('billety_admin', 'billety_usuario');
+
+    -- Ver privilegios de cada usuario
+    SHOW GRANTS FOR 'billety_admin'@'localhost';
+    SHOW GRANTS FOR 'billety_usuario'@'localhost';
+
+==================================================================
